@@ -1,0 +1,89 @@
+name: Instrument
+
+on:
+  workflow_dispatch:
+
+jobs:
+  instrument:
+    runs-on: HelloWorld
+
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    env:
+      FusionLiteServerHost: ${{ vars.FUSIONLITE_SERVER_HOST }}
+      FusionLiteServerPort: ${{ vars.FUSIONLITE_SERVER_PORT }}
+      FusionLiteServerUser: ${{ secrets.FUSIONLITE_SERVER_USER }}
+      FusionLiteServerKeyFile: ${{ secrets.FUSIONLITE_SERVER_KEY_FILE }}
+      FusionLiteProject: ${{ github.event.repository.name }}
+      ApplicationFile: ${{ github.event.repository.name }}.zip
+      ApplicationInclude: ""
+      ApplicationExclude: ""
+      InstrumentedFolder: Instrumented
+      InstrumentedFile: ${{ github.event.repository.name }}.zip
+
+    steps:
+    - name: Print environment variables
+      run: |
+        echo "FusionLiteServerHost: ${{ env.FusionLiteServerHost }}"
+        echo "FusionLiteServerPort: ${{ env.FusionLiteServerPort }}"
+        echo "FusionLiteServerUser: ${{ env.FusionLiteServerUser }}"
+        echo "FusionLiteServerKeyFile: ${{ env.FusionLiteServerKeyFile }}"
+        echo "FusionLiteProject: ${{ env.FusionLiteProject }}"
+        echo "ApplicationFile: ${{ env.ApplicationFile }}"
+        echo "ApplicationInclude: ${{ env.ApplicationInclude }}"
+        echo "ApplicationExclude: ${{ env.ApplicationExclude }}"
+        echo "InstrumentedFolder: ${{ env.InstrumentedFolder }}"
+        echo "InstrumentedFile: ${{ env.InstrumentedFile }}"
+      
+      
+    - name: Print current working directory
+      run: |
+        cd HelloWorldApp.Tests\bin\Debug\net8.0
+        pwd
+
+    - name: Create a ZIP archive of the repository
+      run: |
+        7z a -tzip ${{ env.ApplicationFile }} HelloWorldApp.Tests\bin\Debug\net8.0\. -xr!*.git -xr!*.github  
+        
+    - name: Clean Project
+      run: |
+          $cmdtext = "Clean" + ":" + $env:FusionLiteProject
+          echo "Cmd : $cmdtext"
+          ssh -i $env:FusionLiteServerKeyFile -p $env:FusionLiteServerPort $env:FusionLiteServerUser@$env:FusionLiteServerHost $cmdtext
+          echo "Clean Project Done"
+
+    - name: Transmitting Project Files
+      run: |
+          echo "cd $env:FusionLiteProject/Input`nput $env:ApplicationFile`nexit" | Out-File -FilePath "sftp_put.txt" -Encoding ASCII
+
+          sftp -b sftp_put.txt -i $env:FusionLiteServerKeyFile -P $env:FusionLiteServerPort $env:FusionLiteServerUser@$env:FusionLiteServerHost
+          
+    - name: Preprocessing Project
+      run: |
+          $cmdtext = "PreProcess" + ":" + $env:FusionLiteProject
+          echo "Cmd : $cmdtext"
+          ssh -i $env:FusionLiteServerKeyFile -p $env:FusionLiteServerPort $env:FusionLiteServerUser@$env:FusionLiteServerHost $cmdtext
+
+    - name: Instrument Project
+      run: |
+          $cmdtext = "Instrument" + ":" + $env:FusionLiteProject
+          echo "Cmd : $cmdtext"
+          ssh -i $env:FusionLiteServerKeyFile -p $env:FusionLiteServerPort $env:FusionLiteServerUser@$env:FusionLiteServerHost $cmdtext
+
+    - name: PostProcess Project
+      run: |
+          $cmdtext = "PostProcess" + ":" + $env:FusionLiteProject
+          echo "Cmd : $cmdtext"
+          ssh -i $env:FusionLiteServerKeyFile -p $env:FusionLiteServerPort $env:FusionLiteServerUser@$env:FusionLiteServerHost $cmdtext
+
+    - name: Transmitting Project Files
+      run: |
+          if (Test-Path -Path $env:InstrumentedFolder) {
+            Remove-Item -Path $env:InstrumentedFolder -Recurse -Force        
+          } else {
+            New-Item -ItemType Directory -Path $env:InstrumentedFolder
+          }
+          echo "lcd $env:InstrumentedFolder`ncd $env:FusionLiteProject/Output`nget $env:InstrumentedFile`nexit" | Out-File -FilePath "sftp_get.txt" -Encoding ASCII
+
+          sftp -b sftp_get.txt -i $env:FusionLiteServerKeyFile -P $env:FusionLiteServerPort $env:FusionLiteServerUser@$env:FusionLiteServerHost
