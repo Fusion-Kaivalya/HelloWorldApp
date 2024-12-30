@@ -44,6 +44,7 @@ jobs:
 
     - name: Create a ZIP archive of the repository
       run: |
+        pwd
         7z a -tzip ${{ env.ApplicationFile }} HelloWorldApp.Tests\bin\Debug\net8.0\. -xr!*.git -xr!*.github  
         
     - name: Clean Project
