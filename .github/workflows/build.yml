@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: HelloWorldApp
+    runs-on: HelloWorld
 
     steps:
       - name: Checkout code
