@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: jpetstore-Fusion
+    runs-on: Helloworld
 
     steps:
       - name: Checkout code
